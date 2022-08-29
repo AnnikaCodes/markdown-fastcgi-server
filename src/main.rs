@@ -2,7 +2,7 @@
 
 use std::{io::Write, net::TcpListener};
 
-use pulldown_cmark::{Parser, Options, html, Event, Tag, HeadingLevel, CowStr};
+use pulldown_cmark::{html, CowStr, Event, HeadingLevel, Options, Parser, Tag};
 
 // If you're using this yourself, you'll probably want to change this :)
 static HTML_PREFIX: &'static str = r#"Content-Type: text/html
@@ -41,45 +41,59 @@ fn main() {
     options.insert(Options::ENABLE_TASKLISTS);
 
     let listener = TcpListener::bind("127.0.0.1:9000").unwrap();
-    fastcgi::run_tcp(move |mut req| {
-        let file = req.param("FILE").unwrap();
-        let path  = std::path::Path::new(&file);
-        let file_contents = match std::fs::read_to_string(path) {
-            Ok(contents) => contents,
-            Err(e) => {
-                println!("{}", e);
-                return;
-            }
-        };
-        let mut heading_level: Option<HeadingLevel> = None;
-        let parser = Parser::new_ext(&file_contents, options).filter_map(| event |
-            match event {
+    fastcgi::run_tcp(
+        move |mut req| {
+            let file = req.param("FILE").unwrap();
+            let path = std::path::Path::new(&file);
+            let file_contents = match std::fs::read_to_string(path) {
+                Ok(contents) => contents,
+                Err(e) => {
+                    println!("{}, {:?}", e, e.kind());
+                    // if (e.kind() == ErrorKind::NotFound) {
+                    write!(&mut req.stdout(), "Status: 404 Not Found\r\n\r\n").unwrap();
+                    write!(&mut req.stderr(), "Status: 404 Not Found\r\n\r\n").unwrap();
+                    req.exit(404);
+                    return;
+                }
+            };
+
+            let mut heading_level: Option<HeadingLevel> = None;
+            let parser = Parser::new_ext(&file_contents, options).filter_map(|event| match event {
                 Event::Start(Tag::Heading(level, _, _)) => {
                     heading_level = Some(level);
                     None
-                },
+                }
                 Event::Text(text) => {
                     if let Some(level) = heading_level {
-                        let anchor = text.clone().into_string().trim().to_lowercase().replace(" ", "-");
-                        let tmp = Event::Html(CowStr::from(format!("<{} id=\"{}\">{}", level, anchor, text))).into();
+                        let anchor = text
+                            .clone()
+                            .into_string()
+                            .trim()
+                            .to_lowercase()
+                            .replace(" ", "-");
+                        let tmp = Event::Html(CowStr::from(format!(
+                            "<{} id=\"{}\">{}",
+                            level, anchor, text
+                        )))
+                        .into();
                         heading_level = None;
                         return tmp;
                     }
                     Some(Event::Text(text))
-                },
+                }
                 _ => Some(event),
-            }
-        );
+            });
 
-        let mut stdout = req.stdout();
-        write!(&mut stdout, "{}", HTML_PREFIX).unwrap();
-        match html::write_html(&mut stdout, parser) {
-            Ok(_) => (),
-            Err(e) => {
-                println!("{}", e);
-                return;
+            write!(&mut req.stdout(), "{}", HTML_PREFIX).unwrap();
+            match html::write_html(&mut req.stdout(), parser) {
+                Ok(_) => (),
+                Err(e) => {
+                    println!("{}", e);
+                    return;
+                }
             }
-        }
-        write!(&mut stdout, "{}", HTML_SUFFIX).unwrap();
-    }, &listener);
+            write!(&mut req.stdout(), "{}", HTML_SUFFIX).unwrap();
+        },
+        &listener,
+    );
 }
