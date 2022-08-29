@@ -7,5 +7,4 @@ edition = "2021"
 
 [dependencies]
 fastcgi = "1.0.0"
-markdown = "0.3.0"
 pulldown-cmark = "0.9.2"
