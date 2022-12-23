@@ -146,12 +146,6 @@ fn process_path(path: PathBuf, template: &String) -> std::io::Result<()> {
     Ok(())
 }
 
-// TODO: fix errors
-// TODO: clean up, use results
-// TODO: benchmark
-// TODO: title directive support
-// TODO: remove unneeded packages/imports
-
 fn process_file(input_path: PathBuf, template: &String) -> std::io::Result<()> {
     let markdown_text = fs::read_to_string(&input_path)?;
     let mut output_path = input_path.clone();
@@ -203,7 +197,5 @@ fn main() -> std::io::Result<()> {
         process_path(path, &template)?;
     }
 
-    // write!(&mut req.stdout(), "{}", HTML_PREFIX).unwrap();
-    // write!(&mut req.stdout(), "{}", HTML_SUFFIX).unwrap();\
     Ok(())
 }
