@@ -6,7 +6,7 @@ use std::{ffi::OsStr, fs, path::PathBuf};
 use structopt::StructOpt;
 
 // TODO: support <title> prefix
-static DEFAULT_TEMPLATE: &'static str = r#"
+static DEFAULT_TEMPLATE: &str = r#"
 <!DOCTYPE html>
 <html>
     <head>
@@ -52,7 +52,7 @@ struct Arguments {
     input_dirs_and_files: Vec<PathBuf>,
 }
 
-fn md_to_html(markdown: String, template: &String) -> String {
+fn md_to_html(markdown: String, template: &str) -> String {
     let mut md_parser_options = pulldown_cmark::Options::empty();
     md_parser_options.insert(pulldown_cmark::Options::ENABLE_TABLES);
     md_parser_options.insert(pulldown_cmark::Options::ENABLE_FOOTNOTES);
@@ -96,11 +96,10 @@ fn md_to_html(markdown: String, template: &String) -> String {
                         .into_string()
                         .trim()
                         .to_lowercase()
-                        .replace(" ", "-");
+                        .replace(' ', "-");
                     let anchor = HEADING_REGEX.replace_all(&anchor, "");
                     let tmp = Event::Html(CowStr::from(format!(
-                        "<{} id=\"{}\">{}",
-                        level, anchor, text
+                        "<{level} id=\"{anchor}\">{text}"
                     )))
                     .into();
                     heading_level = None;
@@ -128,13 +127,11 @@ fn process_path(path: PathBuf, template: &String) -> std::io::Result<()> {
         let ext = path.extension();
         if ext == *MARKDOWN_EXTENSION {
             process_file(path, template)?;
-        } else {
-            if ext != *HTML_EXTENSION {
-                eprintln!(
-                    "Warning: ignoring non-Markdown, non-HTML file '{}'",
-                    path.display()
-                );
-            }
+        } else if ext != *HTML_EXTENSION {
+            eprintln!(
+                "Warning: ignoring non-Markdown, non-HTML file '{}'",
+                path.display()
+            );
         }
     } else {
         eprintln!(
@@ -146,12 +143,12 @@ fn process_path(path: PathBuf, template: &String) -> std::io::Result<()> {
     Ok(())
 }
 
-fn process_file(input_path: PathBuf, template: &String) -> std::io::Result<()> {
+fn process_file(input_path: PathBuf, template: &str) -> std::io::Result<()> {
     let markdown_text = fs::read_to_string(&input_path)?;
     let mut output_path = input_path.clone();
 
     output_path.set_extension("html");
-    if &output_path.to_string_lossy() == &input_path.to_string_lossy() {
+    if output_path.to_string_lossy() == input_path.to_string_lossy() {
         eprintln!(
             "Warning: output for '{}' may overwrite the original file — ignoring",
             input_path.display()
