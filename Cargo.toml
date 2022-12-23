@@ -2,6 +2,10 @@
 name = "mdtransform"
 version = "0.1.0"
 edition = "2021"
+description = "a simple program that renders Markdown as HTML for websites"
+license = "MIT"
+homepage = "https://soupy.me/mdtransform"
+repository = "https://github.com/AnnikaCodes/mdtransform"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
