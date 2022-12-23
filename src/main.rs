@@ -45,6 +45,12 @@ struct Arguments {
     template_path: Option<PathBuf>,
 
     #[structopt(
+        long = "--title-suffix",
+        help = "suffix to append to the title of each page"
+    )]
+    title_suffix: Option<String>,
+
+    #[structopt(
         help = "Markdown files or directories containing .md files",
         name = "files or directories to process",
         required = true
@@ -52,7 +58,7 @@ struct Arguments {
     input_dirs_and_files: Vec<PathBuf>,
 }
 
-fn md_to_html(markdown: String, template: &str) -> String {
+fn md_to_html(markdown: String, template: &str, title_suffix: &Option<String>) -> String {
     let mut md_parser_options = pulldown_cmark::Options::empty();
     md_parser_options.insert(pulldown_cmark::Options::ENABLE_TABLES);
     md_parser_options.insert(pulldown_cmark::Options::ENABLE_FOOTNOTES);
@@ -71,9 +77,15 @@ fn md_to_html(markdown: String, template: &str) -> String {
                     // Handle title directive
                     if level == HeadingLevel::H1 {
                         if let Some(title) = text.strip_prefix("TITLE: ") {
+                            let mut title_parts = vec![title];
+
+                            if let Some(suffix) = title_suffix {
+                                title_parts.push(suffix);
+                            }
+
                             let html = [
                                 "<title>",
-                                title,
+                                &title_parts.join(" "),
                                 "</title>\n",
                                 "<center>\n",
                                 "\t<h1 style='margin-bottom: 0px; font-size: 2.5rem;'>",
@@ -118,15 +130,15 @@ fn md_to_html(markdown: String, template: &str) -> String {
     template.replace("$$CONTENT$$", &content)
 }
 
-fn process_path(path: PathBuf, template: &String) -> std::io::Result<()> {
+fn process_path(path: PathBuf, template: &String, title_suffix: &Option<String>) -> std::io::Result<()> {
     if path.is_dir() {
         for entry in path.read_dir()? {
-            process_path(entry?.path(), template)?;
+            process_path(entry?.path(), template, title_suffix)?;
         }
     } else if path.is_file() {
         let ext = path.extension();
         if ext == *MARKDOWN_EXTENSION {
-            process_file(path, template)?;
+            process_file(path, template, title_suffix)?;
         } else if ext != *HTML_EXTENSION {
             eprintln!(
                 "Warning: ignoring non-Markdown, non-HTML file '{}'",
@@ -143,7 +155,7 @@ fn process_path(path: PathBuf, template: &String) -> std::io::Result<()> {
     Ok(())
 }
 
-fn process_file(input_path: PathBuf, template: &str) -> std::io::Result<()> {
+fn process_file(input_path: PathBuf, template: &str, title_suffix: &Option<String>) -> std::io::Result<()> {
     let markdown_text = fs::read_to_string(&input_path)?;
     let mut output_path = input_path.clone();
 
@@ -156,7 +168,7 @@ fn process_file(input_path: PathBuf, template: &str) -> std::io::Result<()> {
         return Ok(());
     }
 
-    fs::write(&output_path, md_to_html(markdown_text, template))?;
+    fs::write(&output_path, md_to_html(markdown_text, template, title_suffix))?;
     println!("=> {}", output_path.display());
     Ok(())
 }
@@ -191,7 +203,7 @@ fn main() -> std::io::Result<()> {
     };
 
     for path in args.input_dirs_and_files {
-        process_path(path, &template)?;
+        process_path(path, &template, &args.title_suffix)?;
     }
 
     Ok(())
